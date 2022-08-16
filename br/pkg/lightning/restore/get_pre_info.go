@@ -390,26 +390,32 @@ func (p *PreRestoreInfoGetterImpl) getTableStructuresByFileMeta(ctx context.Cont
 		return nil, errors.Trace(err)
 	}
 get_struct_from_src:
+	log.L().Info("start to get table info", zap.Reflect("db meta", dbSrcFileMeta))
 	currentTableInfosMap := make(map[string]*model.TableInfo)
 	for _, tblInfo := range currentTableInfosFromDB {
 		currentTableInfosMap[tblInfo.Name.L] = tblInfo
 	}
 	resultInfos := make([]*model.TableInfo, len(dbSrcFileMeta.Tables))
 	for i, tableFileMeta := range dbSrcFileMeta.Tables {
+		log.L().Info("begin to fetch table info from source", zap.Reflect("table info", curTblInfo))
 		if curTblInfo, ok := currentTableInfosMap[strings.ToLower(tableFileMeta.Name)]; ok {
 			resultInfos[i] = curTblInfo
+			log.L().Info("skip this table, because it is fetched from remote(mock)", zap.Reflect("table info", curTblInfo))
 			continue
 		}
 		createTblSQL, err := tableFileMeta.GetSchema(ctx, p.srcStorage)
 		if err != nil {
 			return nil, errors.Annotatef(err, "get create table statement from schema file error: %s", tableFileMeta.Name)
 		}
+		log.L().Info("get create sql successfully", zap.Reflect("create sql", createTblSQL))
+
 		theTableInfo, err := newTableInfo(createTblSQL, 0)
 		if err != nil {
 			errMsg := "generate table info from SQL error"
 			log.L().Error(errMsg, zap.Error(err), zap.String("sql", createTblSQL), zap.String("table_name", tableFileMeta.Name))
 			return nil, errors.Annotatef(err, "%s: %s", errMsg, tableFileMeta.Name)
 		}
+		log.L().Info("get table info by sql successfully", zap.Reflect("table info", theTableInfo))
 		resultInfos[i] = theTableInfo
 	}
 	return resultInfos, nil
