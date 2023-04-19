@@ -1014,20 +1014,24 @@ func (ci *schemaCheckItem) SchemaIsValid(ctx context.Context, tableInfo *mydump.
 		msgs = append(msgs, fmt.Sprintf("file '%s' with unknown source type '%s'", dataFileMeta.Path, dataFileMeta.Type.String()))
 		return msgs, nil
 	}
-	row := []types.Datum{}
-	colsFromDataFile, rows, err := ci.preInfoGetter.ReadFirstNRowsByFileMeta(ctx, dataFileMeta, 1)
+	colsFromDataFile, err := ci.preInfoGetter.ColumnsFromFileMeta(ctx, dataFileMeta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(rows) > 0 {
-		row = rows[0]
-	}
-	if colsFromDataFile == nil && len(row) == 0 {
-		log.FromContext(ctx).Info("file contains no data, skip checking against schema validity", zap.String("path", dataFileMeta.Path))
-		return msgs, nil
-	}
+	if len(colsFromDataFile) == 0 {
+		row := []types.Datum{}
+		_, rows, err := ci.preInfoGetter.ReadFirstNRowsByFileMeta(ctx, dataFileMeta, 1)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(rows) > 0 {
+			row = rows[0]
+		}
+		if len(row) == 0 {
+			log.FromContext(ctx).Info("file contains no data, skip checking against schema validity", zap.String("path", dataFileMeta.Path))
+			return msgs, nil
+		}
 
-	if colsFromDataFile == nil {
 		// when there is no columns name in data file. we must insert data in order.
 		// so the last several columns either can be ignored or has a default value.
 		for i := len(row); i < colCountFromTiDB; i++ {

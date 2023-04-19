@@ -79,6 +79,9 @@ type PreImportInfoGetter interface {
 	ReadFirstNRowsByTableName(ctx context.Context, schemaName string, tableName string, n int) (cols []string, rows [][]types.Datum, err error)
 	// ReadFirstNRowsByFileMeta reads the first N rows of an data file.
 	ReadFirstNRowsByFileMeta(ctx context.Context, dataFileMeta mydump.SourceFileMeta, n int) (cols []string, rows [][]types.Datum, err error)
+	// ColumnsFromFileMeta gets the columns from the data file.
+	ColumnsFromFileMeta(ctx context.Context, dataFileMeta mydump.SourceFileMeta) ([]string, error)
+
 	// EstimateSourceDataSize estimates the datasize to generate during the import as well as some other sub-informaiton.
 	// It will return:
 	// * the estimated data size to generate during the import,
@@ -493,6 +496,42 @@ func (p *PreImportInfoGetterImpl) ReadFirstNRowsByFileMeta(ctx context.Context, 
 		rows = append(rows, lastRowDatums)
 	}
 	return parser.Columns(), rows, nil
+}
+
+func (p *PreImportInfoGetterImpl) ColumnsFromFileMeta(ctx context.Context, dataFileMeta mydump.SourceFileMeta) ([]string, error) {
+	reader, err := mydump.OpenReader(ctx, &dataFileMeta, p.srcStorage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var parser mydump.Parser
+	blockBufSize := int64(p.cfg.Mydumper.ReadBlockSize)
+	switch dataFileMeta.Type {
+	case mydump.SourceTypeCSV:
+		hasHeader := p.cfg.Mydumper.CSV.Header
+		// Create a utf8mb4 convertor to encode and decode data with the charset of CSV files.
+		charsetConvertor, err := mydump.NewCharsetConvertor(p.cfg.Mydumper.DataCharacterSet, p.cfg.Mydumper.DataInvalidCharReplace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		parser, err = mydump.NewCSVParser(ctx, &p.cfg.Mydumper.CSV, reader, blockBufSize, p.ioWorkers, hasHeader, charsetConvertor)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case mydump.SourceTypeSQL:
+		parser = mydump.NewChunkParser(ctx, p.cfg.TiDB.SQLMode, reader, blockBufSize, p.ioWorkers)
+	case mydump.SourceTypeParquet:
+		parser, err = mydump.NewParquetParser(ctx, p.srcStorage, reader, dataFileMeta.Path)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		panic(fmt.Sprintf("unknown file type '%s'", dataFileMeta.Type))
+	}
+	//nolint: errcheck
+	defer parser.Close()
+
+	return parser.Columns(), nil
 }
 
 // EstimateSourceDataSize estimates the datasize to generate during the import as well as some other sub-informaiton.
