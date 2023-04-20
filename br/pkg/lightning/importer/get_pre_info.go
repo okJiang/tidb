@@ -521,10 +521,12 @@ func (p *PreImportInfoGetterImpl) ColumnsFromFileMeta(ctx context.Context, dataF
 	case mydump.SourceTypeSQL:
 		parser = mydump.NewChunkParser(ctx, p.cfg.TiDB.SQLMode, reader, blockBufSize, p.ioWorkers)
 	case mydump.SourceTypeParquet:
+		log.FromContext(ctx).Info("parse parquet file", zap.String("path", dataFileMeta.Path))
 		parser, err = mydump.NewParquetParser(ctx, p.srcStorage, reader, dataFileMeta.Path)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		log.FromContext(ctx).Info("parse parquet file", zap.String("path", dataFileMeta.Path), zap.Int("columns", len(parser.Columns())))
 	default:
 		panic(fmt.Sprintf("unknown file type '%s'", dataFileMeta.Type))
 	}
