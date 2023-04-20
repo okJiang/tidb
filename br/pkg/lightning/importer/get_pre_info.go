@@ -499,6 +499,10 @@ func (p *PreImportInfoGetterImpl) ReadFirstNRowsByFileMeta(ctx context.Context, 
 }
 
 func (p *PreImportInfoGetterImpl) ColumnsFromFileMeta(ctx context.Context, dataFileMeta mydump.SourceFileMeta) ([]string, error) {
+	if dataFileMeta.Type == mydump.SourceTypeParquet {
+		// get columns do not download the whole Parquet file
+		dataFileMeta.FileSize = mydump.SmallParquetFileThreshold + 1
+	}
 	reader, err := mydump.OpenReader(ctx, &dataFileMeta, p.srcStorage)
 	if err != nil {
 		return nil, errors.Trace(err)
