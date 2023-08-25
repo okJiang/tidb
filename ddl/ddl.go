@@ -682,12 +682,12 @@ func newDDL(ctx context.Context, options ...Option) *ddl {
 	scheduler.RegisterTaskType(BackfillTaskType)
 	scheduler.RegisterSchedulerConstructor(BackfillTaskType, proto.StepOne,
 		func(ctx context.Context, _ int64, taskMeta []byte, step int64) (scheduler.Scheduler, error) {
-			return NewBackfillSchedulerHandle(taskMeta, d, step == proto.StepTwo)
+			return NewBackfillSchedulerHandle(ctx, taskMeta, d, step == proto.StepTwo)
 		})
 
 	scheduler.RegisterSchedulerConstructor(BackfillTaskType, proto.StepTwo,
 		func(ctx context.Context, _ int64, taskMeta []byte, step int64) (scheduler.Scheduler, error) {
-			return NewBackfillSchedulerHandle(taskMeta, d, step == proto.StepTwo)
+			return NewBackfillSchedulerHandle(ctx, taskMeta, d, step == proto.StepTwo)
 		})
 
 	dispatcher.RegisterTaskFlowHandle(BackfillTaskType, NewLitBackfillFlowHandle(d))
