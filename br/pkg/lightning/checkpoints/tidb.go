@@ -27,9 +27,10 @@ type TidbDBInfo struct {
 
 // TidbTableInfo is the table info in TiDB.
 type TidbTableInfo struct {
-	ID   int64
-	DB   string
-	Name string
+	ID           int64
+	DB           string
+	Name         string
+	NoImportData bool
 	// Core is the current table info in TiDB.
 	Core *model.TableInfo
 	// Desired is the table info that we want to migrate to. In most cases, it is the same as Core. But

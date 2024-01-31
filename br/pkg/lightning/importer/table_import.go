@@ -187,18 +187,21 @@ func (tr *TableImporter) importTable(
 		}
 		web.BroadcastTableCheckpoint(tr.tableName, cp)
 
-		// rebase the allocator so it exceeds the number of rows.
-		if tr.tableInfo.Core.ContainsAutoRandomBits() {
-			cp.AllocBase = max(cp.AllocBase, tr.tableInfo.Core.AutoRandID)
-			if err := tr.alloc.Get(autoid.AutoRandomType).Rebase(context.Background(), cp.AllocBase, false); err != nil {
-				return false, err
-			}
-		} else {
-			cp.AllocBase = max(cp.AllocBase, tr.tableInfo.Core.AutoIncID)
-			if err := tr.alloc.Get(autoid.RowIDAllocType).Rebase(context.Background(), cp.AllocBase, false); err != nil {
-				return false, err
+		if !tr.tableInfo.NoImportData {
+			// rebase the allocator so it exceeds the number of rows.
+			if tr.tableInfo.Core.ContainsAutoRandomBits() {
+				cp.AllocBase = max(cp.AllocBase, tr.tableInfo.Core.AutoRandID)
+				if err := tr.alloc.Get(autoid.AutoRandomType).Rebase(context.Background(), cp.AllocBase, false); err != nil {
+					return false, err
+				}
+			} else {
+				cp.AllocBase = max(cp.AllocBase, tr.tableInfo.Core.AutoIncID)
+				if err := tr.alloc.Get(autoid.RowIDAllocType).Rebase(context.Background(), cp.AllocBase, false); err != nil {
+					return false, err
+				}
 			}
 		}
+
 		rc.saveCpCh <- saveCp{
 			tableName: tr.tableName,
 			merger: &checkpoints.RebaseCheckpointMerger{
@@ -950,7 +953,7 @@ func (tr *TableImporter) postProcess(
 	}
 
 	// alter table set auto_increment
-	if cp.Status < checkpoints.CheckpointStatusAlteredAutoInc {
+	if cp.Status < checkpoints.CheckpointStatusAlteredAutoInc && !tr.tableInfo.NoImportData {
 		tblInfo := tr.tableInfo.Core
 		var err error
 		if tblInfo.ContainsAutoRandomBits() {

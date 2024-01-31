@@ -223,11 +223,12 @@ func LoadSchemaInfo(
 			// Table names are case-sensitive in mydump.MDTableMeta.
 			// We should always use the original tbl.Name in checkpoints.
 			tableInfo := &checkpoints.TidbTableInfo{
-				ID:      tblInfo.ID,
-				DB:      schema.Name,
-				Name:    tbl.Name,
-				Core:    tblInfo,
-				Desired: tblInfo,
+				ID:           tblInfo.ID,
+				DB:           schema.Name,
+				Name:         tbl.Name,
+				NoImportData: tbl.TotalSize == 0,
+				Core:         tblInfo,
+				Desired:      tblInfo,
 			}
 			dbInfo.Tables[tbl.Name] = tableInfo
 		}
